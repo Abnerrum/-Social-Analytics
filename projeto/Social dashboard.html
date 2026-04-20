@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Social Analytics Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #22222f;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f5;
+      --muted: #8888a0;
+      --purple: #a855f7;
+      --pink: #e040fb;
+      --blue: #378add;
+      --green: #1d9e75;
+      --amber: #ef9f27;
+      --red: #e24b4a;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 24px 32px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #a855f7, #e040fb);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+
+    .logo h1 { font-size: 18px; font-weight: 600; color: var(--text); }
+    .logo span { font-size: 12px; color: var(--muted); }
+
+    .period-btns { display: flex; gap: 6px; }
+    .period-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .period-btn.active, .period-btn:hover {
+      background: var(--purple);
+      color: #fff;
+      border-color: var(--purple);
+    }
+
+    main { padding: 24px 32px 40px; }
+
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 24px; }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .metric-card.purple::before { background: var(--purple); }
+    .metric-card.pink::before   { background: var(--pink); }
+    .metric-card.blue::before   { background: var(--blue); }
+    .metric-card.green::before  { background: var(--green); }
+    .metric-card.amber::before  { background: var(--amber); }
+
+    .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+    .metric-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+    .metric-delta { font-size: 12px; margin-top: 6px; }
+    .metric-delta.up   { color: var(--green); }
+    .metric-delta.down { color: var(--red); }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .card-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .chart-wrap { position: relative; }
+
+    .platform-list { display: flex; flex-direction: column; gap: 12px; }
+    .platform-row { display: flex; align-items: center; gap: 10px; }
+    .platform-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .platform-name { font-size: 13px; color: var(--text); flex: 1; }
+    .platform-bar-wrap { width: 100px; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .platform-bar { height: 100%; border-radius: 3px; }
+    .platform-pct { font-size: 12px; color: var(--muted); width: 36px; text-align: right; }
+
+    .posts-table { width: 100%; border-collapse: collapse; }
+    .posts-table th { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 0 0 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    .posts-table td { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); vertical-align: middle; }
+    .posts-table tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+    .badge.ig  { background: rgba(168,85,247,.18); color: #c084fc; }
+    .badge.tw  { background: rgba(55,138,221,.18); color: #60a5fa; }
+    .badge.tk  { background: rgba(224,64,251,.18);  color: #e879f9; }
+    .badge.yt  { background: rgba(226,75,74,.18);   color: #f87171; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+    .legend-sq { width: 10px; height: 10px; border-radius: 2px; }
+
+    @media (max-width: 700px) {
+      main, header { padding-left: 16px; padding-right: 16px; }
+      .charts-grid, .charts-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <div>
+      <h1>Social Analytics</h1>
+      <span>Last updated: today</span>
+    </div>
+  </div>
+  <div class="period-btns">
+    <button class="period-btn" onclick="setPeriod('7d',this)">7d</button>
+    <button class="period-btn active" onclick="setPeriod('30d',this)">30d</button>
+    <button class="period-btn" onclick="setPeriod('90d',this)">90d</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-title">Engagement over time</div>
+      <div class="card-sub">Likes, comments and shares — last 30 days</div>
+      <div class="legend" id="eng-legend"></div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="engChart" role="img" aria-label="Line chart of engagement over 30 days"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Audience by platform</div>
+      <div class="card-sub">Share of total followers</div>
+      <div class="chart-wrap" style="height:200px;margin-bottom:12px">
+        <canvas id="pieChart" role="img" aria-label="Donut chart of followers per platform"></canvas>
+      </div>
+      <div class="platform-list" id="platform-list"></div>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="card">
+      <div class="card-title">Reach by content type</div>
+      <div class="card-sub">Avg impressions per post format</div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="barChart" role="img" aria-label="Bar chart of reach by content type"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top posts this month</div>
+      <div class="card-sub">Ranked by total engagement</div>
+      <table class="posts-table">
+        <thead>
+          <tr>
+            <th>Post</th>
+            <th>Platform</th>
+            <th style="text-align:right">Eng.</th>
+          </tr>
+        </thead>
+        <tbody id="posts-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const DATA = {
+  '7d': {
+    metrics: [
+      { label: 'Total followers', value: '124.8K', delta: '+1.2K', up: true, color: 'purple' },
+      { label: 'Impressions',    value: '892K',   delta: '+8.4%',  up: true, color: 'pink' },
+      { label: 'Eng. rate',      value: '4.7%',   delta: '+0.3%',  up: true, color: 'blue' },
+      { label: 'New followers',  value: '1,240',  delta: '-3.1%',  up: false, color: 'green' },
+      { label: 'Link clicks',    value: '3,890',  delta: '+12%',   up: true, color: 'amber' },
+    ],
+    engLabels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    engLikes:    [3200,4100,3800,5200,4700,6100,5400],
+    engComments: [420, 510, 380, 640, 590, 780, 670],
+    engShares:   [210, 280, 190, 330, 300, 410, 370],
+  },
+  '30d': {
+    metrics: [
+      { label: 'Total followers', value: '124.8K', delta: '+4.3K',  up: true, color: 'purple' },
+      { label: 'Impressions',    value: '3.6M',   delta: '+11.2%', up: true, color: 'pink' },
+      { label: 'Eng. rate',      value: '4.7%',   delta: '+0.9%',  up: true, color: 'blue' },
+      { label: 'New followers',  value: '5,820',  delta: '+7.5%',  up: true, color: 'green' },
+      { label: 'Link clicks',    value: '18.4K',  delta: '+22%',   up: true, color: 'amber' },
+    ],
+    engLabels: ['W1','W2','W3','W4','W5','W6','W7','W8','W9','W10','W11','W12'],
+    engLikes:    [12000,14500,13200,17800,15600,20100,18400,22000,19800,24500,21000,26800],
+    engComments: [1400,1700,1550,2100,1850,2400,2200,2600,2350,2900,2500,3100],
+    engShares:   [700, 850, 780, 1050,920, 1200,1100,1300,1180,1450,1250,1550],
+  },
+  '90d': {
+    metrics: [
+      { label: 'Total followers', value: '124.8K', delta: '+18.2K', up: true, color: 'purple' },
+      { label: 'Impressions',    value: '10.1M',  delta: '+34.7%', up: true, color: 'pink' },
+      { label: 'Eng. rate',      value: '4.7%',   delta: '+1.4%',  up: true, color: 'blue' },
+      { label: 'New followers',  value: '18.2K',  delta: '+31%',   up: true, color: 'green' },
+      { label: 'Link clicks',    value: '54K',    delta: '+47%',   up: true, color: 'amber' },
+    ],
+    engLabels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    engLikes:    [45000,52000,48000,61000,57000,70000,65000,80000,74000,91000,84000,102000],
+    engComments: [5200,6100,5600,7200,6700,8300,7800,9500,8800,10800,9900,12000],
+    engShares:   [2600,3050,2800,3600,3350,4150,3900,4750,4400,5400,4950,6000],
+  }
+};
+
+const platforms = [
+  { name: 'Instagram', pct: 42, color: '#a855f7', badge: 'ig' },
+  { name: 'TikTok',    pct: 28, color: '#e040fb', badge: 'tk' },
+  { name: 'Twitter/X', pct: 18, color: '#378add', badge: 'tw' },
+  { name: 'YouTube',   pct: 12, color: '#e24b4a', badge: 'yt' },
+];
+
+const posts = [
+  { title: 'Behind the scenes reel', platform: 'Instagram', badge: 'ig', eng: '12.4K' },
+  { title: 'Trending audio clip',    platform: 'TikTok',    badge: 'tk', eng: '9.8K' },
+  { title: 'Thread on AI tools',     platform: 'Twitter/X', badge: 'tw', eng: '7.2K' },
+  { title: 'Tutorial: Python tips',  platform: 'YouTube',   badge: 'yt', eng: '6.5K' },
+  { title: 'Story Q&A session',      platform: 'Instagram', badge: 'ig', eng: '5.1K' },
+];
+
+let currentPeriod = '30d';
+let engChart, pieChart, barChart;
+
+function setPeriod(p, btn) {
+  currentPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMetrics();
+  updateEngChart();
+}
+
+function renderMetrics() {
+  const d = DATA[currentPeriod];
+  document.getElementById('metrics').innerHTML = d.metrics.map(m => `
+    <div class="metric-card ${m.color}">
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-value">${m.value}</div>
+      <div class="metric-delta ${m.up ? 'up' : 'down'}">${m.up ? '▲' : '▼'} ${m.delta} vs prev.</div>
+    </div>
+  `).join('');
+}
+
+function renderPlatforms() {
+  document.getElementById('platform-list').innerHTML = platforms.map(p => `
+    <div class="platform-row">
+      <div class="platform-dot" style="background:${p.color}"></div>
+      <div class="platform-name">${p.name}</div>
+      <div class="platform-bar-wrap"><div class="platform-bar" style="width:${p.pct}%;background:${p.color}"></div></div>
+      <div class="platform-pct">${p.pct}%</div>
+    </div>
+  `).join('');
+}
+
+function renderPosts() {
+  document.getElementById('posts-body').innerHTML = posts.map(p => `
+    <tr>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title}</td>
+      <td><span class="badge ${p.badge}">${p.platform}</span></td>
+      <td style="text-align:right;font-weight:600;color:#a855f7">${p.eng}</td>
+    </tr>
+  `).join('');
+}
+
+function buildEngLegend() {
+  const items = [
+    { label: 'Likes',    color: '#a855f7' },
+    { label: 'Comments', color: '#378add' },
+    { label: 'Shares',   color: '#1d9e75' },
+  ];
+  document.getElementById('eng-legend').innerHTML = items.map(i => `
+    <div class="legend-item"><div class="legend-sq" style="background:${i.color}"></div>${i.label}</div>
+  `).join('');
+}
+
+function initEngChart() {
+  const d = DATA[currentPeriod];
+  engChart = new Chart(document.getElementById('engChart'), {
+    type: 'line',
+    data: {
+      labels: d.engLabels,
+      datasets: [
+        { label: 'Likes',    data: d.engLikes,    borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,.12)', fill: true, tension: .4, pointRadius: 3 },
+        { label: 'Comments', data: d.engComments, borderColor: '#378add', backgroundColor: 'transparent', tension: .4, pointRadius: 3, borderDash: [5,3] },
+        { label: 'Shares',   data: d.engShares,   borderColor: '#1d9e75', backgroundColor: 'transparent', tension: .4, pointRadius: 3, borderDash: [2,4] },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8888a0', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+        y: { ticks: { color: '#8888a0', font: { size: 11 }, callback: v => v >= 1000 ? (v/1000).toFixed(0)+'K' : v }, grid: { color: 'rgba(255,255,255,.05)' } }
+      }
+    }
+  });
+}
+
+function updateEngChart() {
+  const d = DATA[currentPeriod];
+  engChart.data.labels = d.engLabels;
+  engChart.data.datasets[0].data = d.engLikes;
+  engChart.data.datasets[1].data = d.engComments;
+  engChart.data.datasets[2].data = d.engShares;
+  engChart.update();
+}
+
+function initPieChart() {
+  pieChart = new Chart(document.getElementById('pieChart'), {
+    type: 'doughnut',
+    data: {
+      labels: platforms.map(p => p.name),
+      datasets: [{ data: platforms.map(p => p.pct), backgroundColor: platforms.map(p => p.color), borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}%` } } }
+    }
+  });
+}
+
+function initBarChart() {
+  const types  = ['Reels', 'Carousels', 'Stories', 'Photos', 'Videos'];
+  const values = [28400, 21000, 16500, 13200, 35000];
+  barChart = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: types,
+      datasets: [{
+        label: 'Avg reach',
+        data: values,
+        backgroundColor: ['#a855f7','#e040fb','#378add','#1d9e75','#ef9f27'],
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8888a0', font: { size: 11 } }, grid: { display: false } },
+        y: { ticks: { color: '#8888a0', font: { size: 11 }, callback: v => (v/1000).toFixed(0)+'K' }, grid: { color: 'rgba(255,255,255,.05)' } }
+      }
+    }
+  });
+}
+
+renderMetrics();
+renderPlatforms();
+renderPosts();
+buildEngLegend();
+initEngChart();
+initPieChart();
+initBarChart();
+</script>
+
+</body>
+</html>
